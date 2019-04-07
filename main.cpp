@@ -5,11 +5,13 @@
 //
 //
 #include <random>
-#include "sem.h"
+//#include "sem.h"
 
 #include <pthread.h>
+#include <semaphore.h>
+#include <zconf.h>
 
-#define BUFSIZE 25
+#define BUFSIZE 20
 
 struct bufor {
     int even = 0;
@@ -23,11 +25,11 @@ int prodOddWaiting = 0;
 int consEvenWaiting = 0;
 int consOddWaiting = 0;
 
-Semaphore static mutex(1);
-Semaphore static mutexProdOdd(1);
-Semaphore static mutexProdEven(1);
-Semaphore static mutexConsOdd(1);
-Semaphore static mutexConsEven(1);
+sem_t mutex;
+sem_t mutexProdOdd;
+sem_t mutexProdEven;
+sem_t mutexConsOdd;
+sem_t mutexConsEven;
 
 //static struct sembuf xyz;
 // flaga 0600
@@ -59,118 +61,122 @@ bool prodEvenCanProduce() {
 }
 
 bool consOddCanConsume() {
-    return b.even + b.odd > 6;
+    return b.even + b.odd > 6 && b.buf[0] %2 != 0;
 }
 
 bool consEvenCanConsume() {
-    return b.even + b.odd > 2;
+    return b.even + b.odd > 2 && b.buf[0] %2 == 0;
 }
 
 void produceOddNum() {
+    sem_wait(&mutexProdOdd);
     unsigned int x = (1 + 2 * random(0, 49));
     putToBuf(x);
+    sem_post(&mutexProdOdd);
 }
 
 void produceEvenNum() {
+    sem_wait(&mutexProdEven);
     unsigned int x = (2 * random(0, 49));
     putToBuf(x);
+    sem_post(&mutexProdEven);
 }
 
 void consumeEvenNum() {
-    if (b.buf[0] % 2 == 0) {
+        sem_wait(&mutexConsEven);
         int x = getFromBuf();
-    } else printf("Can't consume even\n");
+        sem_post(&mutexConsEven);
 }
 
 void consumeOddNum() {
-    if (b.buf[0] % 2 != 0) {
+    sem_wait(&mutexConsOdd);
         int x = getFromBuf();
-    } else printf("Can't consume odd\n");
+    sem_post(&mutexConsOdd);
 }
 
 
 void* prodOdd(void *arg) {
-    mutex.P();
+    sem_wait(&mutex);
     if (!prodOddCanProduce()) {
         printf("Can't\n");
         ++prodOddWaiting;
-        mutex.V();
-        mutexProdOdd.P();
+        sem_post(&mutex);
+        //sem_wait(&mutexProdOdd);
     }
     produceOddNum();
     if (prodEvenCanProduce() && prodEvenWaiting > 0) {
         --prodEvenWaiting;
-        mutexProdEven.V();
+        sem_post(&mutexProdEven);
     } else if (consOddCanConsume() && consOddWaiting > 0) {
         --consOddWaiting;
-        mutexConsOdd.V();
+        sem_post(&mutexConsOdd);
     } else if (consEvenCanConsume() && consEvenWaiting > 0) {
         --consEvenWaiting;
-        mutexConsEven.V();
-    } else mutex.V();
+        sem_post(&mutexConsEven);
+    } else sem_post(&mutex);
 }
 
 void* prodEven(void *arg) {
-    mutex.P();
+    sem_wait(&mutex);
     if (!prodEvenCanProduce()) {
         printf("Can't\n");
         ++prodEvenWaiting;
-        mutex.V();
-        mutexProdEven.P();
+        sem_post(&mutex);
+        //sem_wait(&mutexProdEven);
     }
     produceEvenNum();
     if (prodOddCanProduce() && prodOddWaiting > 0) {
         --prodOddWaiting;
-        mutexProdOdd.V();
+        sem_post(&mutexProdOdd);
     } else if (consEvenCanConsume() && consEvenWaiting > 0) {
         --consEvenWaiting;
-        mutexConsEven.V();
+        sem_post(&mutexConsEven);
     } else if (consOddCanConsume() && consOddWaiting > 0) {
         --consOddWaiting;
-        mutexConsOdd.V();
-    } else mutex.V();
+        sem_post(&mutexConsOdd);
+    }else sem_post(&mutex);
 }
 
 void* consEven(void *arg) {
-    mutex.P();
+    sem_wait(&mutex);
     if (!consEvenCanConsume()) {
         printf("Can't\n");
         ++consEvenWaiting;
-        mutex.V();
-        mutexConsEven.P();
+        sem_post(&mutex);
+        //sem_wait(&mutexConsEven);
     }
     consumeEvenNum();
     if (consOddCanConsume() && consOddWaiting > 0) {
         --consOddWaiting;
-        mutexConsOdd.V();
+        sem_post(&mutexConsOdd);
     } else if (prodEvenCanProduce() && prodEvenWaiting > 0) {
         --prodEvenWaiting;
-        mutexProdEven.V();
+        sem_post(&mutexProdEven);
     } else if (prodOddCanProduce() && prodOddWaiting > 0) {
         --prodOddWaiting;
-        mutexProdOdd.V();
-    } else mutex.V();
+        sem_post(&mutexProdOdd);
+    } else sem_post(&mutex);
 }
 
 void* consOdd(void *arg) {
-    mutex.P();
+    sem_wait(&mutex);
     if (!consOddCanConsume()) {
         printf("Can't\n");
         ++consOddWaiting;
-        mutex.V();
-        mutexConsOdd.P();
+        sem_post(&mutex);
+        //sem_wait(&mutexConsOdd);
     }
     consumeOddNum();
     if (consEvenCanConsume() && consEvenWaiting > 0) {
         --consEvenWaiting;
-        mutexConsEven.V();
+        sem_post(&mutexConsEven);
     } else if (prodEvenCanProduce() && prodEvenWaiting > 0) {
         --prodEvenWaiting;
-        mutexProdEven.V();
+        sem_post(&mutexProdEven);
     } else if (prodOddCanProduce() && prodOddWaiting > 0) {
         --prodOddWaiting;
-        mutexProdOdd.V();
-    } else mutex.V();
+        sem_post(&mutexProdOdd);
+    } else sem_post(&mutex);
 }
 
 
@@ -213,35 +219,41 @@ int getFromBuf() {   // if -1 nothing happend
 
 }
 
-pthread_t tid;
+pthread_t tid1;
+pthread_t tid2;
+pthread_t tid3;
+pthread_t tid4;
+
 int main() {
     int i = 0;
     int err;
     int x = random(1,4);
+
+    sem_init(&mutex, 0, 1);
+    sem_init(&mutexConsEven, 0, 1);
+    sem_init(&mutexConsOdd, 0, 1);
+    sem_init(&mutexProdEven, 0, 1);
+    sem_init(&mutexProdOdd, 0, 1);
+
     while(1)
-    {   switch (x) {
-            case 1:
-                err = pthread_create(&(tid), NULL, &prodEven, NULL);
-                printf("1");
-                break;
-            case 2:
-                err = pthread_create(&(tid), NULL, &prodOdd, NULL);
-                printf("2");
-                break;
-            case 3:
-                err = pthread_create(&(tid), NULL, &consEven, NULL);
-                printf("3");
-                break;
-            case 4:
-                err = pthread_create(&(tid), NULL, &consOdd, NULL);
-                printf("4");
-                break;
-        }
-        // pthread_join(tid, NULL);
+    {
+        pthread_create(&(tid1), NULL, &prodEven, NULL);
+        pthread_create(&(tid2), NULL, &prodOdd, NULL);
+        pthread_create(&(tid3), NULL, &consEven, NULL);
+        pthread_create(&(tid4), NULL, &consOdd, NULL);
+        printf("\n---- %d ----\n\n", i++);
+        pthread_join(tid1, NULL);
+        showStatus();
+        pthread_join(tid2, NULL);
+        showStatus();
+        pthread_join(tid3, NULL);
+        showStatus();
+        pthread_join(tid4, NULL);
+
+        //pthread_join(tid1, NULL);
         showStatus();
         x = random(1,4);
-        //sleep(1);
     }
-    sleep(3);
+    //sleep(3);
     return 0;
 }

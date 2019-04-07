@@ -5,7 +5,6 @@
 //
 //
 #include <random>
-//#include "sem.h"
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -31,8 +30,6 @@ sem_t mutexProdEven;
 sem_t mutexConsOdd;
 sem_t mutexConsEven;
 
-//static struct sembuf xyz;
-// flaga 0600
 
 thread_local std::mt19937 gen{std::random_device{}()};
 
@@ -83,14 +80,14 @@ void produceEvenNum() {
 }
 
 void consumeEvenNum() {
-        sem_wait(&mutexConsEven);
-        int x = getFromBuf();
-        sem_post(&mutexConsEven);
+    sem_wait(&mutexConsEven);
+    int x = getFromBuf();
+    sem_post(&mutexConsEven);
 }
 
 void consumeOddNum() {
     sem_wait(&mutexConsOdd);
-        int x = getFromBuf();
+    int x = getFromBuf();
     sem_post(&mutexConsOdd);
 }
 
@@ -236,32 +233,32 @@ int main() {
     sem_init(&mutexProdOdd, 0, 1);
 
     while(1)
-    {   switch (x) {
+    {
+        printf("\n---- %d ----\n\n", i++);
+        switch (x) {
+
             case 1:
-                printf("1");
+                printf("1 ");
                 pthread_create(&(tid1), NULL, &prodEven, NULL);
                 pthread_join(tid1, NULL);
                 break;
             case 2:
-                printf("2");
+                printf("2 ");
                 pthread_create(&(tid2), NULL, &prodOdd, NULL);
                 pthread_join(tid2, NULL);
                 break;
             case 3:
-                printf("3");
+                printf("3 ");
                 pthread_create(&(tid3), NULL, &consEven, NULL);
                 pthread_join(tid3, NULL);
                 break;
             case 4:
-                printf("4");
+                printf("4 ");
                 pthread_create(&(tid4), NULL, &consOdd, NULL);
                 pthread_join(tid4, NULL);
                 break;
         }
-        // pthread_join(tid1, NULL);
         showStatus();
         x = random(1,4);
     }
-    //sleep(3);
-    return 0;
 }
